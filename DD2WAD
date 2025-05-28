@@ -1,0 +1,386 @@
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
+// --- STEP 1: Depth Dwellers Data Structures (Highly Speculative!) ---
+// You will need to replace these with actual reverse-engineered structures.
+
+// Example: A very basic guess for a Depth Dwellers Image
+class DDImage {
+    int width;
+    int height;
+    byte[] pixels; // Indexed pixels
+    byte[] palette; // RGB (256 * 3 bytes)
+
+    public DDImage(int width, int height, byte[] pixels, byte[] palette) {
+        this.width = width;
+        this.height = height;
+        this.pixels = pixels;
+        this.palette = palette;
+    }
+}
+
+// Example: A very basic guess for a Depth Dwellers Sound
+class DDSound {
+    int sampleRate;
+    byte[] audioData; // Raw PCM or some compressed format
+    // Add other sound properties as discovered
+}
+
+// Example: A very basic guess for a Depth Dwellers Map Header
+class DDMapHeader {
+    // This is where you'd put map-specific offsets, sizes, etc.
+    // e.g., offset to vertex data, number of lines, etc.
+}
+
+
+// --- STEP 2: Doom .WAD Data Structures ---
+
+// Represents a single "lump" in the WAD file
+class WadLump {
+    String name; // 8-character name
+    byte[] data;
+    int offset; // Filled in during WAD creation
+    int size;   // Filled in during WAD creation
+
+    public WadLump(String name, byte[] data) {
+        // Ensure name is 8 chars, padded with nulls
+        this.name = String.format("%-8s", name).substring(0, 8);
+        this.data = data;
+        this.size = data.length;
+    }
+}
+
+// Represents a Doom Texture (composed of patches)
+class DoomTexture {
+    String name; // 8-char name
+    boolean masked; // Doom texture flag
+    int width;
+    int height;
+    List<DoomPatch> patches;
+
+    public DoomTexture(String name, int width, int height) {
+        this.name = String.format("%-8s", name).substring(0, 8);
+        this.width = width;
+        this.height = height;
+        this.patches = new ArrayList<>();
+    }
+
+    public void addPatch(DoomPatch patch) {
+        this.patches.add(patch);
+    }
+
+    // This method would create the byte array for a TEXTUREx lump
+    public byte[] toBytes() {
+        // This is simplified. Actual TEXTUREx lump format is more complex.
+        // It includes width, height, number of patches, then patch offsets and info.
+        ByteBuffer buffer = ByteBuffer.allocate(32 + (patches.size() * 10)); // Example size
+        buffer.order(ByteOrder.LITTLE_ENDIAN); // Doom uses little-endian
+
+        buffer.putInt(width);
+        buffer.putInt(height);
+        buffer.putInt(patches.size());
+        // ... put offsets to patches within this lump ...
+        // ... put patch info (originX, originY, patchIndex) ...
+
+        return buffer.array();
+    }
+}
+
+// Represents a Doom Patch (raw image data for a portion of a texture/sprite)
+class DoomPatch {
+    int width;
+    int height;
+    int leftOffset; // Relative to texture
+    int topOffset;  // Relative to texture
+    byte[] imageData; // Raw Doom graphics format (column-major, with post info)
+
+    public DoomPatch(int width, int height, int leftOffset, int topOffset, byte[] imageData) {
+        this.width = width;
+        this.height = height;
+        this.leftOffset = leftOffset;
+        this.topOffset = topOffset;
+        this.imageData = imageData;
+    }
+
+    // This method would convert the raw pixel data to Doom's column-major format
+    public byte[] toDoomGraphicFormat() {
+        // This is highly complex. Doom graphics are stored as:
+        // Width, Height, LeftOffset, TopOffset, ColumnPointers[Width],
+        // then for each column: PostCount, TopDelta, Length, Data... (repeated)
+        // You'll need to transpose your row-major pixel data to column-major.
+        // Also, Doom's graphics are typically 8-bit indexed, using the global palette.
+        return imageData; // Placeholder
+    }
+}
+
+// --- Main Converter Class ---
+public class DepthDwellersToWadConverter {
+
+    private String ddResPath;
+    private String ddDatPath;
+    private String outputWadPath;
+
+    private List<WadLump> lumps = new ArrayList<>();
+    private Map<String, DoomTexture> textures = new HashMap<>(); // Store created textures
+
+    public DepthDwellersToWadConverter(String ddResPath, String ddDatPath, String outputWadPath) {
+        this.ddResPath = ddResPath;
+        this.ddDatPath = ddDatPath;
+        this.outputWadPath = outputWadPath;
+    }
+
+    public void convert() throws IOException {
+        System.out.println("Starting Depth Dwellers to Doom WAD conversion...");
+
+        // Phase 1: Extracting from DD.RES and DD.DAT
+        System.out.println("Phase 1: Extracting data from DD.RES and DD.DAT...");
+        extractDataFromDepthDwellersFiles();
+
+        // Phase 2: Converting extracted data to Doom Lumps
+        System.out.println("Phase 2: Converting extracted data to Doom Lumps...");
+        createDoomLumps();
+
+        // Phase 3: Writing the .WAD file
+        System.out.println("Phase 3: Writing the .WAD file...");
+        writeWadFile();
+
+        System.out.println("Conversion complete (or conceptual steps outlined!).");
+    }
+
+    private void extractDataFromDepthDwellersFiles() throws IOException {
+        // --- THIS IS THE HARDEST PART AND REQUIRES REVERSE ENGINEERING! ---
+
+        // Example: Reading a dummy DD.RES (you'll need to implement actual parsing)
+        try (FileInputStream fisRes = new FileInputStream(ddResPath)) {
+            // Read header, locate asset table, read offsets/sizes.
+            // Example: Assuming a simple image at a known offset
+            // byte[] someImageData = new byte[1024]; // Placeholder
+            // fisRes.read(someImageData);
+            // DDImage ddImage = new DDImage(64, 16, someImageData, null); // Dummy
+            // Store extracted DDImage, DDSound, DDMapHeader objects in lists/maps
+
+            // You might find an index/directory at the start or end of DD.RES
+            // that lists names, offsets, and sizes of resources.
+            // For images, you need to find the pixel data and its corresponding palette.
+            // Depth Dwellers likely uses 8-bit palettized graphics.
+            // The palette might be global, or per-image. A common place for a 256-color palette
+            // is a block of 768 bytes (256 * 3 for R, G, B).
+
+            System.out.println("  (Placeholder) Simulating data extraction from DD.RES...");
+
+            // Dummy extracted image data for demonstration
+            byte[] dummyPalette = new byte[768]; // R, G, B for 256 colors
+            for (int i = 0; i < 256; i++) {
+                dummyPalette[i * 3] = (byte) (i);       // Red
+                dummyPalette[i * 3 + 1] = (byte) (i);   // Green
+                dummyPalette[i * 3 + 2] = (byte) (i);   // Blue
+            }
+
+            // Create a dummy image (e.g., 64x64, all index 100)
+            byte[] dummyPixels = new byte[64 * 64];
+            for (int i = 0; i < dummyPixels.length; i++) {
+                dummyPixels[i] = 100; // An arbitrary palette index
+            }
+            DDImage extractedImage = new DDImage(64, 64, dummyPixels, dummyPalette);
+
+            // Store extracted images (e.g., in a List<DDImage>)
+            // For now, let's just make it available for the next phase.
+            // In a real scenario, you'd have many extracted images.
+            processExtractedImage(extractedImage, "DDWALL01"); // Process a dummy image
+            processExtractedPalette(dummyPalette); // Process the palette
+
+        }
+
+        try (FileInputStream fisDat = new FileInputStream(ddDatPath)) {
+            // This file likely contains map data.
+            // You'll need to parse its structure for vertices, lines, sectors, things.
+            System.out.println("  (Placeholder) Simulating data extraction from DD.DAT...");
+            // DDMapHeader mapHeader = new DDMapHeader(...); // Parse map data
+            // Store extracted map data
+        }
+    }
+
+    private void processExtractedImage(DDImage ddImage, String doomLumpName) {
+        // This is a placeholder for converting DDImage to Doom's graphics format.
+        // Doom's graphics are column-major and have a specific header structure
+        // (width, height, offsets, then column data including post info).
+        // This is a significant conversion challenge.
+
+        // For simplicity, let's just create a dummy DoomPatch from the DDImage
+        // This is NOT correct for actual Doom patches, but shows the concept.
+        DoomPatch dummyPatch = new DoomPatch(
+            ddImage.width,
+            ddImage.height,
+            0, // Left offset
+            0, // Top offset
+            ddImage.pixels // Needs to be converted to Doom's raw graphic format
+        );
+
+        // Add this patch as a lump. Doom sprites often have a P_ name (e.g., P_DOOR1).
+        lumps.add(new WadLump(doomLumpName, dummyPatch.toDoomGraphicFormat()));
+
+        // If this image is part of a texture, you'd also create a DoomTexture object
+        // and add its byte representation to the lumps list as a TEXTUREx lump.
+        // Example:
+        // DoomTexture texture = new DoomTexture("TX" + doomLumpName.substring(2), ddImage.width, ddImage.height);
+        // texture.addPatch(dummyPatch);
+        // lumps.add(new WadLump("TEXTURE1", texture.toBytes())); // Or TEXTURE2 for Ultimate Doom
+    }
+
+    private void processExtractedPalette(byte[] paletteData) {
+        // Doom's PLAYPAL lump is 14 blocks of 256 * 3 bytes (RGB).
+        // For a basic conversion, you only need one palette (the first one).
+        // The palette data needs to be 256 * 3 bytes (R,G,B).
+        // Ensure your extracted palette is in this format.
+
+        // For a single palette, just take the first 768 bytes.
+        byte[] playpalData = new byte[768];
+        System.arraycopy(paletteData, 0, playpalData, 0, 768);
+
+        lumps.add(new WadLump("PLAYPAL", playpalData));
+
+        // You also need a COLORMAP lump for lighting effects.
+        // A basic COLORMAP can be generated, but a proper one is complex.
+        // For now, you can use a placeholder or generate a simple linear ramp.
+        byte[] colormapData = generateBasicColormap();
+        lumps.add(new WadLump("COLORMAP", colormapData));
+
+        // PNAMES lump is needed for texture definitions. It's a list of patch names.
+        // You'd build this list as you process your DDImages.
+        // For now, a placeholder.
+        byte[] pnamesData = generateBasicPnames();
+        lumps.add(new WadLump("PNAMES", pnamesData));
+    }
+
+    private byte[] generateBasicColormap() {
+        // A very basic colormap (17 rows of 256 bytes)
+        // Each row represents a different light level.
+        // Row 0 is brightest, row 16 is darkest.
+        byte[] colormap = new byte[17 * 256];
+        for (int i = 0; i < 17; i++) {
+            for (int j = 0; j < 256; j++) {
+                // Simple linear dimming
+                colormap[i * 256 + j] = (byte) Math.max(0, j - (i * 10)); // Adjust dimming factor
+            }
+        }
+        return colormap;
+    }
+
+    private byte[] generateBasicPnames() {
+        // PNAMES lump: int (number of patches), then list of 8-char patch names
+        // This is a placeholder. You'd dynamically add patch names as you convert.
+        String dummyPatchName = "DDWALL01"; // Must match a P_ lump name
+        ByteBuffer buffer = ByteBuffer.allocate(4 + 8); // 4 bytes for count, 8 for name
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+        buffer.putInt(1); // One patch for now
+        buffer.put(String.format("%-8s", dummyPatchName).getBytes());
+        return buffer.array();
+    }
+
+
+    private void createDoomLumps() {
+        // This phase takes the higher-level "DDImage", "DDSound", "DDMap" objects
+        // and converts them into the specific byte formats for Doom Lumps.
+
+        // Example: Convert extracted images to Doom sprites/textures.
+        // This requires creating Doom-specific graphic lump formats.
+        // For sprites: You'd need S_START, S_END, and the actual sprite lumps (e.g., A_START).
+        // For textures: You'd need T_START, T_END, and the actual texture lumps (e.g., CEIL1_1).
+        // Don't forget the PNAMES, PLAYPAL, COLORMAP lumps which are crucial for graphics.
+
+        // Add markers for graphic groups (S_START, S_END, P_START, P_END, etc.)
+        lumps.add(0, new WadLump("S_START", new byte[0])); // Marker for sprites
+        lumps.add(new WadLump("S_END", new byte[0]));
+
+        lumps.add(0, new WadLump("P_START", new byte[0])); // Marker for patches
+        lumps.add(new WadLump("P_END", new byte[0]));
+
+        lumps.add(0, new WadLump("TX_START", new byte[0])); // Marker for textures (Ultimate Doom/Doom II)
+        lumps.add(new WadLump("TX_END", new byte[0]));
+
+
+        // Map Conversion (M_START, M_END and map lumps like THINGS, LINEDEFS etc.)
+        // This is the most complex part. You need to map Depth Dwellers' 2D map
+        // to Doom's 2.5D format. This involves:
+        // - Extracting walls, floors, ceilings from DD's map data.
+        // - Converting 2D lines/rectangles to Doom's linedefs/sidedefs/sectors.
+        // - Placing Doom things (player start, enemies, items) based on DD's objects.
+        // - Creating vertexes, nodes, segs, etc.
+        // This cannot be done simply without deep reverse engineering of DD.DAT.
+
+        // Example: Creating a dummy MAP01 structure
+        lumps.add(new WadLump("MAP01", new byte[0])); // Map header
+        lumps.add(new WadLump("THINGS", new byte[0])); // Empty for now
+        lumps.add(new WadLump("LINEDEFS", new byte[0]));
+        lumps.add(new WadLump("SIDEDEFS", new byte[0]));
+        lumps.add(new WadLump("VERTEXES", new byte[0]));
+        lumps.add(new WadLump("SECTORS", new byte[0]));
+        // ... and other map lumps
+    }
+
+
+    private void writeWadFile() throws IOException {
+        int headerSize = 12; // Type (4), NumLumps (4), DirOffset (4)
+        int lumpDirectoryEntrySize = 16; // Offset (4), Size (4), Name (8)
+
+        int numLumps = lumps.size();
+        int directoryOffset = headerSize; // Directory starts right after the header.
+
+        // Calculate actual lump data offsets
+        int currentOffset = headerSize + (numLumps * lumpDirectoryEntrySize);
+        for (WadLump lump : lumps) {
+            lump.offset = currentOffset;
+            currentOffset += lump.size;
+        }
+
+        try (FileOutputStream fos = new FileOutputStream(outputWadPath)) {
+            ByteBuffer buffer = ByteBuffer.allocate(headerSize + (numLumps * lumpDirectoryEntrySize));
+            buffer.order(ByteOrder.LITTLE_ENDIAN); // Doom uses little-endian
+
+            // Write WAD Header
+            buffer.put("PWAD".getBytes()); // Or "IWAD" if you're making a base WAD
+            buffer.putInt(numLumps);
+            buffer.putInt(directoryOffset);
+
+            // Write Lump Directory
+            for (WadLump lump : lumps) {
+                buffer.putInt(lump.offset);
+                buffer.putInt(lump.size);
+                buffer.put(lump.name.getBytes());
+            }
+
+            fos.write(buffer.array());
+
+            // Write Lump Data
+            for (WadLump lump : lumps) {
+                fos.write(lump.data);
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        if (args.length < 3) {
+            System.out.println("Usage: java DepthDwellersToWadConverter <DD.RES_PATH> <DD.DAT_PATH> <OUTPUT.WAD_PATH>");
+            return;
+        }
+
+        String ddResPath = args[0];
+        String ddDatPath = args[1];
+        String outputWadPath = args[2];
+
+        DepthDwellersToWadConverter converter = new DepthDwellersToWadConverter(ddResPath, ddDatPath, outputWadPath);
+        try {
+            converter.convert();
+        } catch (IOException e) {
+            System.err.println("Error during conversion: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}
